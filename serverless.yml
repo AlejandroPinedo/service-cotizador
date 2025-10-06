@@ -7,20 +7,15 @@ provider:
   runtime: python3.11
   stage: ${opt:stage, 'dev'}
   region: us-east-1
-  memorySize: 256 # Más memoria para la generación de PDF y psycopg2
-  timeout: 60      # Más tiempo para operaciones de DB y S3
+  memorySize: 256
+  timeout: 60
   environment:
-    #AURORA_SECRET_ARN: ${self:custom.auroraSecretArn} # <-- NUEVA VARIABLE
     COTIZACIONES_TABLE_NAME: ${self:custom.cotizacionesTableName} 
     S3_BUCKET_NAME: ${self:custom.s3BucketName}
     EVENT_BUS_NAME: ${self:custom.eventBusName}
   iam:
     role: arn:aws:iam::804540221052:role/LabRole
   iamRoleStatements:
-    # Permisos para acceder al Secret de Aurora
-    # - Effect: Allow
-    #   Action: secretsmanager:GetSecretValue
-    #   Resource: ${self:custom.auroraSecretArn}
     - Effect: Allow
       Action:
         - dynamodb:PutItem
@@ -28,53 +23,43 @@ provider:
         - dynamodb:UpdateItem
         - dynamodb:Query
       Resource: !GetAtt CotizacionesTable.Arn
-    # Permisos para S3 (guardar PDFs)
     - Effect: Allow
       Action:
         - s3:PutObject
         - s3:GetObject
       Resource: arn:aws:s3:::${self:custom.s3BucketName}/*
-    # Permisos para publicar eventos
     - Effect: Allow
       Action: events:PutEvents
-      Resource: !ImportValue service-cotizador-${self:provider.stage}-EventBusArn # Importa el ARN del EventBus
-    # Permisos para invocar Step Functions (si se usara para flujos complejos)
-    # - Effect: Allow
-    #   Action: states:StartExecution
-    #   Resource: "*" # O más específico al ARN de la State Machine
+      Resource: !ImportValue service-cotizador-${self:provider.stage}-EventBusArn
 
 custom:
-  #auroraSecretArn: arn:aws:secretsmanager:sa-east-1:<YOUR_AWS_ACCOUNT_ID>:secret:your-aurora-db-secret-xxxx # <--- REEMPLAZAR
   cotizacionesTableName: Cotizaciones-${self:provider.stage}
   s3BucketName: prodirtec-cotizaciones-${self:provider.stage}-${aws:accountId}
-  eventBusName: !ImportValue service-cotizador-${self:provider.stage}-EventBusName # Importa el nombre del EventBus
+  eventBusName: !ImportValue service-cotizador-${self:provider.stage}-EventBusName
 
-# Plugin para manejar dependencias de Python (ej. psycopg2-binary, reportlab)
 plugins:
   - serverless-python-requirements
 
 package:
-  individually: true # Empaqueta cada función Lambda de forma independiente
+  individually: true
   exclude:
     - ./**
   include:
-    - service-cotizador/cotizador_lambda.py
-    - service-cotizador/requirements.txt
+    - cotizador_lambda.py  # <-- CAMBIO: Se quitó el prefijo de la carpeta
+    - requirements.txt     # <-- CAMBIO: Se quitó el prefijo de la carpeta
 
 functions:
   generateQuote:
-    handler: service-cotizador/cotizador_lambda.handler
-    # Define que esta función se activa por un evento de EventBridge
+    handler: cotizador_lambda.handler # <-- CAMBIO: Se quitó el prefijo de la carpeta
     events:
       - eventBridge:
           eventBus: ${self:custom.eventBusName}
           pattern:
             source: ["prodirtec.cotizaciones.solicitudes"]
             detail-type: ["CotizacionSolicitada"]
-    # <-- MEJORA APLICADA: Se eliminó el bloque 'package' redundante de aquí.
 
   getQuote:
-    handler: service-cotizador/cotizador_lambda.handler
+    handler: cotizador_lambda.handler # <-- CAMBIO: Se quitó el prefijo de la carpeta
     events:
       - http:
           path: cotizaciones/{cotizacion_id}
@@ -82,7 +67,7 @@ functions:
           cors: true
 
   adjustQuote:
-    handler: service-cotizador/cotizador_lambda.handler
+    handler: cotizador_lambda.handler # <-- CAMBIO: Se quitó el prefijo de la carpeta
     events:
       - http:
           path: cotizaciones/{cotizacion_id}/ajustar
@@ -90,16 +75,13 @@ functions:
           cors: true
 
   approveQuote:
-    handler: service-cotizador/cotizador_lambda.handler
+    handler: cotizador_lambda.handler # <-- CAMBIO: Se quitó el prefijo de la carpeta
     events:
       - http:
           path: cotizaciones/{cotizacion_id}/aprobar
           method: post
           cors: true
 
-# No se definen recursos de Aurora aquí, asumiendo que el clúster ya está aprovisionado.
-# Sin embargo, puedes definir las tablas si Aurora no es serverless o si quieres que CloudFormation las gestione.
-# Aquí un ejemplo para crear un bucket S3 si no existe:
 resources:
   Resources:
     CotizacionesTable:
@@ -110,12 +92,12 @@ resources:
           - AttributeName: cotizacion_id
             AttributeType: S
           - AttributeName: solicitud_id
-            AttributeType: S # Para consultas por Solicitud
+            AttributeType: S
         KeySchema:
           - AttributeName: cotizacion_id
             KeyType: HASH
         BillingMode: PAY_PER_REQUEST
-        GlobalSecondaryIndexes: # Índice para buscar por solicitud_id
+        GlobalSecondaryIndexes:
           - IndexName: SolicitudIndex
             KeySchema:
               - AttributeName: solicitud_id
@@ -126,13 +108,11 @@ resources:
       Type: AWS::S3::Bucket
       Properties:
         BucketName: ${self:custom.s3BucketName}
-        PublicAccessBlockConfiguration: # Es buena práctica restringir el acceso público
+        PublicAccessBlockConfiguration:
           BlockPublicAcls: true
           BlockPublicPolicy: true
           IgnorePublicAcls: true
           RestrictPublicBuckets: true
-        # Si se quiere acceso público para los PDFs, se debe configurar una política de bucket adecuada
-        # y configurar CloudFront para servir los archivos de forma segura.
 
 outputs:
   S3BucketName:
