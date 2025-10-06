@@ -13,8 +13,6 @@ provider:
     COTIZACIONES_TABLE_NAME: ${self:custom.cotizacionesTableName}
     S3_BUCKET_NAME: ${self:custom.s3BucketName}
     EVENT_BUS_NAME: ${self:custom.eventBusName}
-  # iam:
-  #   role: arn:aws:iam::804540221052:role/LabRole # <-- ELIMINADO para mayor seguridad y portabilidad
   iamRoleStatements:
     - Effect: Allow
       Action:
@@ -45,12 +43,12 @@ package:
   exclude:
     - ./**
   include:
-    - service-cotizador/cotizador_lambda.py
-    - service-cotizador/requirements.txt
+    - cotizador_lambda.py    # <--- CORREGIDO: Sin el prefijo "service-cotizador/"
+    - requirements.txt       # <--- CORREGIDO: Sin el prefijo "service-cotizador/"
 
 functions:
   generateQuote:
-    handler: service-cotizador/cotizador_lambda.handler
+    handler: cotizador_lambda.handler # <--- CORREGIDO: Sin el prefijo "service-cotizador/"
     events:
       - eventBridge:
           eventBus: ${self:custom.eventBusName}
@@ -59,7 +57,7 @@ functions:
             detail-type: ["CotizacionSolicitada"]
 
   getQuote:
-    handler: service-cotizador/cotizador_lambda.handler
+    handler: cotizador_lambda.handler # <--- CORREGIDO
     events:
       - http:
           path: cotizaciones/{cotizacion_id}
@@ -67,7 +65,7 @@ functions:
           cors: true
 
   adjustQuote:
-    handler: service-cotizador/cotizador_lambda.handler
+    handler: cotizador_lambda.handler # <--- CORREGIDO
     events:
       - http:
           path: cotizaciones/{cotizacion_id}/ajustar
@@ -75,13 +73,14 @@ functions:
           cors: true
 
   approveQuote:
-    handler: service-cotizador/cotizador_lambda.handler
+    handler: cotizador_lambda.handler # <--- CORREGIDO
     events:
       - http:
           path: cotizaciones/{cotizacion_id}/aprobar
           method: post
           cors: true
 
+# ... (La sección de resources y outputs no necesita cambios) ...
 resources:
   Resources:
     CotizacionesTable:
