@@ -78,7 +78,7 @@ def generate_cotizacion_pdf(cotizacion_data, cotizacion_id):
     y_pos = 580
     c.drawString(100, y_pos, "--------------------------------------------------------------------------------")
     y_pos -= 15
-    c.drawString(100, y_pos, "ITEM                     CANT.      UNIDAD     PRECIO UNIT.     SUBTOTAL")
+    c.drawString(100, y_pos, "ITEM                      CANT.      UNIDAD      PRECIO UNIT.      SUBTOTAL")
     y_pos -= 10
     c.drawString(100, y_pos, "--------------------------------------------------------------------------------")
     y_pos -= 15
@@ -339,13 +339,12 @@ def handle_eventbridge_event(event):
             cotizaciones_table.put_item(Item=cotizacion)
 
             # 4. Generar PDF y subir a S3 (SIN CAMBIOS)
-            pdf_buffer = generate_cotizacion_pdf(cotizacion, cotizacion_id)
+            pdf_buffer = generate_cotizacion_pdf(cotizacion)
             pdf_key = f"cotizaciones/{cotizacion_id}.pdf"
             s3.put_object(Bucket=S3_BUCKET_NAME, Key=pdf_key, Body=pdf_buffer.getvalue(), ContentType='application/pdf')
             
-            # MEJORA: Construir la URL de S3 dinámicamente usando la región del entorno
-            aws_region = os.environ.get('AWS_REGION') # <-- MEJORA APLICADA
-            s3_url = f"https://{S3_BUCKET_NAME}.s3.{aws_region}.amazonaws.com/{pdf_key}" # <-- MEJORA APLICADA
+            # CRÍTICO: CAMBIO DE REGIÓN EN LA URL
+            s3_url = f"https://{S3_BUCKET_NAME}.s3.us-east-1.amazonaws.com/{pdf_key}" # <-- CAMBIO DE sa-east-1 A us-east-1
             
             # 5. Actualizar cotización con URL del PDF en DynamoDB (reemplaza UPDATE en Aurora)
             cotizaciones_table.update_item(
