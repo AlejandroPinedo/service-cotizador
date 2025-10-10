@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard de Cotizaciones</title>
+    <style>
+        :root {
+            --primary-color: #007bff;
+            --secondary-color: #6c757d;
+            --success-color: #28a745;
+            --warning-color: #ffc107;
+            --light-gray: #f8f9fa;
+            --dark-gray: #343a40;
+            --border-radius: 8px;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            background-color: var(--light-gray);
+            color: var(--dark-gray);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            width: 100%;
+            max-width: 600px;
+            background-color: white;
+            padding: 2rem;
+            border-radius: var(--border-radius);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
+            color: var(--primary-color);
+            margin-bottom: 1.5rem;
+        }
+        .input-group {
+            margin-bottom: 1.5rem;
+        }
+        #cotizacionId {
+            width: 100%;
+            padding: 12px;
+            font-size: 1rem;
+            border: 1px solid #ccc;
+            border-radius: var(--border-radius);
+            box-sizing: border-box;
+        }
+        .button-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px;
+            margin-bottom: 1.5rem;
+        }
+        button {
+            padding: 12px;
+            font-size: 1rem;
+            font-weight: bold;
+            color: white;
+            border: none;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        button:hover {
+            opacity: 0.85;
+        }
+        .btn-get { background-color: var(--primary-color); }
+        .btn-put { background-color: var(--warning-color); color: var(--dark-gray); }
+        .btn-post { background-color: var(--success-color); }
+        #resultado {
+            background-color: #e9ecef;
+            padding: 1rem;
+            border-radius: var(--border-radius);
+            min-height: 150px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            color: var(--dark-gray);
+        }
+        .loader {
+            display: none;
+            margin: 20px auto;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid var(--primary-color);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Gestor de Cotizaciones 📑</h1>
+        <div class="input-group">
+            <input type="text" id="cotizacionId" placeholder="ID de la cotización (ej: COT-1234)">
+        </div>
+        <div class="button-group">
+            <button class="btn-get" onclick="getQuote()">Consultar (GET)</button>
+            <button class="btn-put" onclick="adjustQuote()">Ajustar (PUT)</button>
+            <button class="btn-post" onclick="approveQuote()">Aprobar (POST)</button>
+        </div>
+        <hr>
+        <h3>Respuesta de la API:</h3>
+        <div class="loader" id="loader"></div>
+        <pre id="resultado">{ "mensaje": "Esperando una acción..." }</pre>
+    </div>
+
+    <script>
+        // --- ¡IMPORTANTE! ---
+        // Reemplaza esta URL con la URL de tu API Gateway desplegada.
+        const API_BASE_URL = 'https://TU_API_GATEWAY_URL/dev';
+
+        const cotizacionIdInput = document.getElementById('cotizacionId');
+        const resultadoDiv = document.getElementById('resultado');
+        const loader = document.getElementById('loader');
+
+        /**
+         * Función genérica para realizar peticiones a la API.
+         * @param {string} method - Método HTTP ('GET', 'PUT', 'POST').
+         * @param {string} path - Ruta adicional del endpoint (ej: '/ajustar').
+         */
+        async function callApi(method, path = '') {
+            const cotizacionId = cotizacionIdInput.value.trim();
+            if (!cotizacionId) {
+                alert('Por favor, ingresa un ID de cotización.');
+                return;
+            }
+
+            loader.style.display = 'block';
+            resultadoDiv.style.display = 'none';
+            resultadoDiv.textContent = '';
+
+            try {
+                const url = `${API_BASE_URL}/cotizaciones/${cotizacionId}${path}`;
+                const response = await fetch(url, { method });
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.mensaje || `Error HTTP ${response.status}`);
+                }
+
+                resultadoDiv.textContent = JSON.stringify(data, null, 2);
+
+            } catch (error) {
+                resultadoDiv.textContent = `❌ Error:\n${error.message}`;
+            } finally {
+                loader.style.display = 'none';
+                resultadoDiv.style.display = 'block';
+            }
+        }
+
+        const getQuote = () => callApi('GET');
+        const adjustQuote = () => callApi('PUT', '/ajustar');
+        const approveQuote = () => callApi('POST', '/aprobar');
+    </script>
+
+</body>
+</html>

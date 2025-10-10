@@ -1,0 +1,70 @@
+# service-cotizador/serverless.yml
+org: herlespinedo
+service: service-cotizador
+
+provider:
+  name: aws
+  runtime: python3.11 # Se recomienda usar una versión LTS como 3.11 para mayor estabilidad
+  stage: ${opt:stage, 'dev'}
+  region: us-east-1
+
+  iam:
+    role: arn:aws:iam::804540221052:role/LabRole
+
+  memorySize: 256
+  timeout: 29
+
+  environment:
+    COTIZACIONES_TABLE_NAME: ${self:custom.cotizacionesTableName}
+    S3_BUCKET_NAME: ${self:custom.s3BucketName}
+
+custom:
+  cotizacionesTableName: Cotizaciones-${self:provider.stage}
+  s3BucketName: prodirtec-cotizaciones-${self:provider.stage}-${aws:accountId}
+
+plugins:
+  - serverless-python-requirements
+
+functions:
+  getQuote:
+    handler: src/get_handler.handler
+    events:
+      - http:
+          path: cotizaciones/{cotizacion_id}
+          method: get
+          cors: true
+
+  adjustQuote:
+    handler: src/adjust_handler.handler
+    events:
+      - http:
+          path: cotizaciones/{cotizacion_id}/ajustar
+          method: put
+          cors: true
+
+  approveQuote:
+    handler: src/approve_handler.handler
+    events:
+      - http:
+          path: cotizaciones/{cotizacion_id}/aprobar
+          method: post
+          cors: true
+
+resources:
+  Resources:
+    CotizacionesTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.cotizacionesTableName}
+        AttributeDefinitions:
+          - AttributeName: cotizacion_id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: cotizacion_id
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
+        
+    CotizacionesBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:custom.s3BucketName}
